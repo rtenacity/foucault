@@ -89,8 +89,11 @@ print(f"MAX: {PHASEDET_MAXRAW * AD7124_VOLTAGESCALE / 2:.6f}")
 with serial.Serial(COUNTER, baud, timeout=timeout) as ser:
     data = ser.readline()
     data_formatted = data.decode().strip()
-    time.sleep(0.1)
-    print(f"COUNTER: {data_formatted}") 
+    if data_formatted is None:
+        data = ser.readline()
+        data_formatted = data.decode().strip()
+    
+    print(f"COUNTER: {data_formatted}")
 
 print()
 
