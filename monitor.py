@@ -4,8 +4,6 @@ import subprocess
 import serial
 import csv
 
-#! A DAC output of about 650mV will almost keep the PD output constant at the current room temp. - Mr. Sandoz
-
 def execute_shell_command(cmd):
     process = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
     return process.stdout.strip()
