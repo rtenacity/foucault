@@ -27,6 +27,9 @@ def read_from_file(file_path):
     with open(file_path, 'r') as file:
         return file.read().strip()
 
+with open('phasevolt.csv', 'w') as file:
+    file.write('')
+
 # Identify components that are interacting with the system
 DAC = "/sys/bus/iio/devices/iio:device0"
 ADC = "/sys/bus/iio/devices/iio:device1"
@@ -41,6 +44,7 @@ ADC_RAW = float(read_from_file(f"{ADC}/in_voltage0-voltage1_raw"))
 
 VOLTAGE = 650 * (1/DAC_VOLTAGE_SCALE)
 DAC_OUTPUT = str(VOLTAGE)
+
 
 # Intializing DAC and ADC
 if not (os.path.isdir(DAC) and os.path.isfile(f"{DAC}/out_voltage0_raw")):
@@ -60,6 +64,10 @@ if current_sample_freq != ADC_SAMPLEFREQ:
     print(f"sample freq changed from {current_sample_freq}")
     write_to_file(f"{ADC}/in_voltage0-voltage1_sampling_frequency", str(ADC_SAMPLEFREQ))
     print(f"sample freq changed to {ADC_SAMPLEFREQ}")
+
+# For a cooler visual (optional step)
+write_to_file(f"{DAC}/out_voltage0_raw", str(500 * (1/DAC_VOLTAGE_SCALE)))
+time.sleep(2)
 
 # Establishing target value (average phase detector value, which should correspond to a phase angle of 90 degrees)
 df = (pd.read_csv('phasedet_avg.csv', usecols = [0], header = None))
