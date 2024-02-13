@@ -1,13 +1,15 @@
 import shutup
-shutup.please() #temporary until i get pandas to stop being annoying
+shutup.please() # Temporary until i get pandas to stop being annoying
 
 import os
 import time
 import subprocess
 import serial
 import csv
+import numpy as np
 import pandas as pd
-from simple_pid import pid
+from simple_pid import PID
+from time import sleep
 
 #! A DAC output of about 650mV will almost keep the PD output constant at the current room temp.
 
@@ -24,7 +26,6 @@ def write_to_file(file_path, data):
 def read_from_file(file_path):
     with open(file_path, 'r') as file:
         return file.read().strip()
-    
 
 # Identify components that are interacting with the system
 DAC = "/sys/bus/iio/devices/iio:device0"
@@ -38,13 +39,11 @@ DAC_OUTPUT_RAW = float(read_from_file(f"{DAC}/out_voltage0_raw"))
 ADC_VOLTAGESCALE = float(read_from_file(f"{ADC}/in_voltage0-voltage1_scale"))
 ADC_RAW = float(read_from_file(f"{ADC}/in_voltage0-voltage1_raw"))
 
-onevolt = 209658
-DAC_OUTPUT = str(onevolt)
+VOLTAGE = 650 * (1/DAC_VOLTAGE_SCALE)
+DAC_OUTPUT = str(VOLTAGE)
 
-# Establishing target value (average phase detector value, which should correspond to a phase angle of 90 degrees)
-df = (pd.read_csv('phasedet_avg.csv', usecols = [0], header = None))
-target = df[0].astype(float).mean()
 
+# Intializing DAC and ADC
 if not (os.path.isdir(DAC) and os.path.isfile(f"{DAC}/out_voltage0_raw")):
     print("ad5791 device tree not instantiated.")
     exit(1)
@@ -62,3 +61,22 @@ if current_sample_freq != ADC_SAMPLEFREQ:
     print(f"sample freq changed from {current_sample_freq}")
     write_to_file(f"{ADC}/in_voltage0-voltage1_sampling_frequency", str(ADC_SAMPLEFREQ))
     print(f"sample freq changed to {ADC_SAMPLEFREQ}")
+
+# Establishing target value (average phase detector value, which should correspond to a phase angle of 90 degrees)
+df = (pd.read_csv('phasedet_avg.csv', usecols = [0], header = None))
+target = df[0].astype(float).mean()
+
+pid = PID(1, 0.1, 0, setpoint=target)
+
+pid.sample_time = 1
+
+phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
+error = phase_voltage - target
+
+while True:
+    correction = pid(phase_voltage)
+    print(correction)
+    write_to_file(f"{DAC}/out_voltage0_raw", str(correction * VOLTAGE))
+    phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
+    print(phase_voltage)
+    sleep(0.5)
