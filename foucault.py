@@ -1,15 +1,7 @@
-import shutup
-shutup.please() # Temporary until i get pandas to stop being annoying
-
 import os
 import time
 import subprocess
-import serial
-import csv
-import numpy as np
-import pandas as pd
 from simple_pid import PID
-from time import sleep
 
 #! A DAC output of about 650mV will almost keep the PD output constant at the current room temp.
 
@@ -45,6 +37,7 @@ ADC_RAW = float(read_from_file(f"{ADC}/in_voltage0-voltage1_raw"))
 VOLTAGE = 650 * (1/DAC_VOLTAGE_SCALE)
 DAC_OUTPUT = str(VOLTAGE)
 
+PHASEDET_SUMVOLT = 0
 
 # Intializing DAC and ADC
 if not (os.path.isdir(DAC) and os.path.isfile(f"{DAC}/out_voltage0_raw")):
@@ -70,27 +63,33 @@ write_to_file(f"{DAC}/out_voltage0_raw", str(500 * (1/DAC_VOLTAGE_SCALE)))
 time.sleep(2)
 
 # Establishing target value (average phase detector value, which should correspond to a phase angle of 90 degrees)
-df = (pd.read_csv('phasedet_avg.csv', usecols = [0], header = None))
-target = df[0].astype(float).mean()
+for i in range(1, 20):
+    PHASEDET_REFRAW = int(read_from_file(f"{ADC}/in_voltage2-voltage3_raw"))
+    PHASEDET_REFVOLT = PHASEDET_REFRAW * ADC_VOLTAGESCALE / 1
+    PHASEDET_MIDVOLT = PHASEDET_REFVOLT / 2
+    PHASEDET_SUMVOLT += PHASEDET_MIDVOLT
+    PHASEDET_AVGVOLT = PHASEDET_SUMVOLT / i
 
-pid = PID(0.6, 0.15, 0.03, setpoint=target)
+pid = PID(0.6, 0.15, 0.03, setpoint=PHASEDET_AVGVOLT)
 pid.output_limits = (-2000, 2000)
 
 phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
 
-# Run the P controller
+# Run the PID control loop
 while True:
+    
+    # Average phase voltage to avoid noisy signals
     phase_voltages = []
     for i in range (0, 5):
         phase_voltage_pt = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
         phase_voltages.append(phase_voltage_pt)
-        time.sleep(0.1)
+        time.sleep(0.1)    
     phase_voltage = sum(phase_voltages) / len(phase_voltages)
+    
+    # Get the raw correction voltage and apply it to the DAC
     correction = VOLTAGE + ((pid(phase_voltage) / 500) * VOLTAGE)
     write_to_file(f"{DAC}/out_voltage0_raw", str(correction))
-    with open('phasevolt.csv', 'a', newline='') as file:
-        line = []
-        line.append(phase_voltage)
-        writer = csv.writer(file)
-        writer.writerow(line)
+    
+    # Print phase voltage and correction voltage
     print(f"{phase_voltage}, {correction * DAC_VOLTAGE_SCALE}")
+    # time.sleep(0.1)

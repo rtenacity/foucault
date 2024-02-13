@@ -107,12 +107,6 @@ for i in range(10):
     adc_raw = adc_array[i]
     adc_voltage = adc_raw * AD7124_VOLTAGESCALE
     print(f"{i} : {adc_raw} : {adc_voltage:.3f} : {180 - (adc_voltage * 100 / 1000):.2f}")
-    
-with open(file_path, 'a', newline='') as file:
-    line = []
-    line.append(PHASEDET_AVGVOLT)
-    writer = csv.writer(file)
-    writer.writerow(line)
 
 print("---------------------------------")
 
