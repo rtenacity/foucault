@@ -41,7 +41,7 @@ ADC_RAW = float(read_from_file(f"{ADC}/in_voltage0-voltage1_raw"))
 
 VOLTAGE = 650 * (1/DAC_VOLTAGE_SCALE)
 DAC_OUTPUT = str(VOLTAGE)
-
+print(DAC_OUTPUT)
 
 # Intializing DAC and ADC
 if not (os.path.isdir(DAC) and os.path.isfile(f"{DAC}/out_voltage0_raw")):
@@ -63,24 +63,84 @@ if current_sample_freq != ADC_SAMPLEFREQ:
     print(f"sample freq changed to {ADC_SAMPLEFREQ}")
 
 # Establishing target value (average phase detector value, which should correspond to a phase angle of 90 degrees)
-df = (pd.read_csv('phasedet_avg.csv', usecols = [0], header = None))
-target = df[0].astype(float).mean()
+# df = (pd.read_csv('phasedet_avg.csv', usecols = [0], header = None))
+# target = df[0].astype(float).mean()
 
-pid = PID(2, 1, 0, setpoint=target)
-
-pid.sample_time = 1
-
+# Testing values (for simple P controller)
+target = 915
+Kp = 1
 phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
-error = phase_voltage - target
+current_error = phase_voltage - target
 
-while True:
+# Trying the algorithm for five seconds
+for i in range(0, 5):
     phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
-    correction = pid(phase_voltage)
-    # write_to_file(f"{DAC}/out_voltage0_raw", str(correction * (1/DAC_VOLTAGE_SCALE)))
+    error = target - phase_voltage
+    correction = VOLTAGE + ((error/target) * Kp * VOLTAGE)
+    write_to_file(f"{DAC}/out_voltage0_raw", str(correction))
     with open('phasevolt.csv', 'a', newline='') as file:
         line = []
         line.append(phase_voltage)
         writer = csv.writer(file)
         writer.writerow(line)
-    print(phase_voltage)
-    sleep(0.01)
+    print(f"{phase_voltage}, {correction * DAC_VOLTAGE_SCALE}")
+    sleep(1)
+
+final_error = phase_voltage - target
+
+# Check if the P controller is "pointing" in the right direction
+if abs(final_error - current_error) > 100:
+    Kp = Kp * -1
+    print('flag toggled')
+
+# Run the P controller
+while True:
+    phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
+    error = target - phase_voltage
+    correction = VOLTAGE + ((error/target) * Kp * VOLTAGE)
+    write_to_file(f"{DAC}/out_voltage0_raw", str(correction))
+    with open('phasevolt.csv', 'a', newline='') as file:
+        line = []
+        line.append(phase_voltage)
+        writer = csv.writer(file)
+        writer.writerow(line)
+    print(f"{phase_voltage}, {correction * DAC_VOLTAGE_SCALE}")
+    sleep(1)
+
+# pid = PID(0.5, 0, 0, setpoint=target)
+# pid.output_limits = (-2000, 2000)
+
+# phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
+# current_error = phase_voltage - target
+
+# for i in range(0, 10):
+#     phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
+#     correction = (pid(phase_voltage) / 1000) * VOLTAGE
+#     #print(correction)
+#     write_to_file(f"{DAC}/out_voltage0_raw", str(correction * (1/DAC_VOLTAGE_SCALE)))
+#     with open('phasevolt.csv', 'a', newline='') as file:
+#         line = []
+#         line.append(phase_voltage)
+#         writer = csv.writer(file)
+#         writer.writerow(line)
+#     print(f"{phase_voltage}, {correction / VOLTAGE}")
+#     sleep(1)
+
+# final_error = phase_voltage - target
+
+# if abs(final_error - current_error) > 100:
+#     pid.Kp = pid.Kp * -1
+#     print('flag toggled')
+
+# while True:
+#     phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
+#     correction = (pid(phase_voltage) / 1000) * VOLTAGE
+#     #print(correction)
+#     write_to_file(f"{DAC}/out_voltage0_raw", str(correction * (1/DAC_VOLTAGE_SCALE)))
+#     with open('phasevolt.csv', 'a', newline='') as file:
+#         line = []
+#         line.append(phase_voltage)
+#         writer = csv.writer(file)
+#         writer.writerow(line)
+#     print(f"{phase_voltage}, {correction / VOLTAGE}")
+#     sleep(1)
