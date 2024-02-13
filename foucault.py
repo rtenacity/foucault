@@ -76,7 +76,7 @@ error = phase_voltage - target
 while True:
     phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
     correction = pid(phase_voltage)
-    write_to_file(f"{DAC}/out_voltage0_raw", str(correction * (1/DAC_VOLTAGE_SCALE)))
+    # write_to_file(f"{DAC}/out_voltage0_raw", str(correction * (1/DAC_VOLTAGE_SCALE)))
     with open('phasevolt.csv', 'a', newline='') as file:
         line = []
         line.append(phase_voltage)
