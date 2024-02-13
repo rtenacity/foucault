@@ -66,7 +66,7 @@ if current_sample_freq != ADC_SAMPLEFREQ:
 df = (pd.read_csv('phasedet_avg.csv', usecols = [0], header = None))
 target = df[0].astype(float).mean()
 
-pid = PID(1, 0.1, 0, setpoint=target)
+pid = PID(2, 1, 0, setpoint=target)
 
 pid.sample_time = 1
 
@@ -74,9 +74,13 @@ phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOL
 error = phase_voltage - target
 
 while True:
-    correction = pid(phase_voltage)
-    print(correction)
-    write_to_file(f"{DAC}/out_voltage0_raw", str(correction * VOLTAGE))
     phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
+    correction = pid(phase_voltage)
+    write_to_file(f"{DAC}/out_voltage0_raw", str(correction * (1/DAC_VOLTAGE_SCALE)))
+    with open('phasevolt.csv', 'a', newline='') as file:
+        line = []
+        line.append(phase_voltage)
+        writer = csv.writer(file)
+        writer.writerow(line)
     print(phase_voltage)
-    sleep(0.5)
+    sleep(0.01)
