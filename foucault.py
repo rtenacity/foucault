@@ -19,9 +19,6 @@ def read_from_file(file_path):
     with open(file_path, 'r') as file:
         return file.read().strip()
 
-with open('phasevolt.csv', 'w') as file:
-    file.write('')
-
 # Identify components that are interacting with the system
 DAC = "/sys/bus/iio/devices/iio:device0"
 ADC = "/sys/bus/iio/devices/iio:device1"
@@ -91,5 +88,5 @@ while True:
     write_to_file(f"{DAC}/out_voltage0_raw", str(correction))
     
     # Print phase voltage and correction voltage
-    print(f"{phase_voltage}, {correction * DAC_VOLTAGE_SCALE}")
+    print(f"{PHASEDET_AVGVOLT}, {phase_voltage}, {correction * DAC_VOLTAGE_SCALE}")
     # time.sleep(0.1)
