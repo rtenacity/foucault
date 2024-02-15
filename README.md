@@ -10,7 +10,7 @@ Foucault is a disciplining algorithm for ultra low noise oscillators. It uses a 
 
 ## Theory
 
-If the oscillator drifts from the reference frequency, the phase angle between them will change as a function of time. A phase detector can detect this phase angle and return it as a voltage. Therefore, a specific phase angle corresponds to a voltage emitted from the phase detector. The algorithm determines the voltage necessary for a 90 degree phase angle and uses a PID controller to keep the phase angle constant. It does this by returning the output the controller to the DAC, which changes the tuning voltage. This keeps the frequency and the phase angle constant, therefore removing the drift. 
+If the oscillator drifts from the reference frequency, the phase angle between them will change as a function of time. A phase detector can detect this phase angle and return it as a voltage. Therefore, a specific phase angle corresponds to a voltage emitted from the phase detector. The algorithm determines the voltage necessary for a 90 degree phase angle and uses a PID controller to keep the phase angle constant. It does this by returning the output of the controller to the DAC, which changes the tuning voltage. This keeps the frequency and the phase angle constant, therefore removing the drift. 
 
 ## Program
 
