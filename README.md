@@ -4,6 +4,7 @@
 Foucault is a disciplining algorithm for ultra low noise oscillators. It uses a PID controller to compare the oscillator to a GPS reference signal, and then adjusts the tuning voltage to keep the frequency and phase angle from drifting. 
 
 # Diagram
+![Foucault-Diagram-Updated](https://github.com/rtenacity/foucault/assets/50297222/f2f4c226-a27c-4bde-a583-c817f5ca2132)
 
 # Implementation
 
@@ -28,3 +29,6 @@ If the oscillator drifts from the reference frequency, the phase angle between t
 2. `foucault.py`: This is the main program where the PID controller is defined and executed.
 
 # Demo
+
+https://github.com/rtenacity/foucault/assets/50297222/5dd416c3-6daa-4331-b738-9e31de7b2182
+
