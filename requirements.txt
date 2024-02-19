@@ -1,3 +1,0 @@
-shutup
-pandas
-simple_pid

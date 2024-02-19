@@ -3,7 +3,7 @@ import time
 import subprocess
 from simple_pid import PID
 
-#! A DAC output of about 650mV will almost keep the PD output constant at the current room temp.
+#! A DAC output of about 650mV will almost keep the PD output constant at the current room temp. This is based on some preliminary measurements of the oscillator at the moment.
 
 # Helper functions to make the program easier to work with
 def execute_shell_command(cmd):
@@ -23,7 +23,8 @@ def read_from_file(file_path):
 DAC = "/sys/bus/iio/devices/iio:device0"
 ADC = "/sys/bus/iio/devices/iio:device1"
 
-ADC_SAMPLEFREQ = 711
+# ADC_SAMPLEFREQ = 711
+ADC_SAMPLEFREQ = 5000
 
 DAC_VOLTAGE_SCALE = float(read_from_file(f"{DAC}/out_voltage_scale"))
 DAC_OUTPUT_RAW = float(read_from_file(f"{DAC}/out_voltage0_raw"))
@@ -31,8 +32,10 @@ DAC_OUTPUT_RAW = float(read_from_file(f"{DAC}/out_voltage0_raw"))
 ADC_VOLTAGESCALE = float(read_from_file(f"{ADC}/in_voltage0-voltage1_scale"))
 ADC_RAW = float(read_from_file(f"{ADC}/in_voltage0-voltage1_raw"))
 
-VOLTAGE = 650 * (1/DAC_VOLTAGE_SCALE)
+VOLTAGE = 800 * (1/DAC_VOLTAGE_SCALE)
 DAC_OUTPUT = str(VOLTAGE)
+
+LIMIT = 300
 
 PHASEDET_SUMVOLT = 0
 
@@ -56,8 +59,8 @@ if current_sample_freq != ADC_SAMPLEFREQ:
     print(f"sample freq changed to {ADC_SAMPLEFREQ}")
 
 # For a cooler visual (optional step)
-write_to_file(f"{DAC}/out_voltage0_raw", str(500 * (1/DAC_VOLTAGE_SCALE)))
-time.sleep(2)
+# write_to_file(f"{DAC}/out_voltage0_raw", str(500 * (1/DAC_VOLTAGE_SCALE)))
+# time.sleep(2)
 
 # Establishing target value (average phase detector value, which should correspond to a phase angle of 90 degrees)
 for i in range(1, 20):
@@ -67,14 +70,15 @@ for i in range(1, 20):
     PHASEDET_SUMVOLT += PHASEDET_MIDVOLT
     PHASEDET_AVGVOLT = PHASEDET_SUMVOLT / i
 
-pid = PID(0.6, 0.15, 0.03, setpoint=PHASEDET_AVGVOLT)
-pid.output_limits = (-2000, 2000)
+fine_tune = PID(0.8, 0.15, 0.03, setpoint=PHASEDET_AVGVOLT)
+coarse_tune = PID(0.6, 0.15, 0.03, setpoint=PHASEDET_AVGVOLT)
+fine_tune.output_limits = (-2000, 2000)
+coarse_tune.output_limits = (-2000, 2000)
 
 phase_voltage = int(read_from_file(f"{ADC}/in_voltage0-voltage1_raw")) * ADC_VOLTAGESCALE
 
 # Run the PID control loop
 while True:
-    
     # Average phase voltage to avoid noisy signals
     phase_voltages = []
     for i in range (0, 5):
@@ -83,10 +87,23 @@ while True:
         time.sleep(0.1)    
     phase_voltage = sum(phase_voltages) / len(phase_voltages)
     
-    # Get the raw correction voltage and apply it to the DAC
-    correction = VOLTAGE + ((pid(phase_voltage) / 500) * VOLTAGE)
-    write_to_file(f"{DAC}/out_voltage0_raw", str(correction))
+    # Calculate the error to determine whether to use coarse correction or fine correction
+    error = PHASEDET_AVGVOLT - phase_voltage
     
-    # Print phase voltage and correction voltage
-    print(f"{PHASEDET_AVGVOLT}, {phase_voltage}, {correction * DAC_VOLTAGE_SCALE}")
-    # time.sleep(0.1)
+    if abs(error) > LIMIT:
+        # Get the raw correction voltage from the coarse correction and apply it to the DAC
+        correction = VOLTAGE + ((coarse_tune(phase_voltage) / 500) * VOLTAGE)
+        write_to_file(f"{DAC}/out_voltage0_raw", str(correction))
+        
+        # Print phase voltage and correction voltage
+        print(f"{PHASEDET_AVGVOLT:.3f}, {phase_voltage:.3f}, {correction * DAC_VOLTAGE_SCALE:.3f}, {phase_voltage - PHASEDET_AVGVOLT:.3f}")
+        # time.sleep(0.1)
+
+    else:
+        # Get the raw correction voltage from the fine correction and apply it to the DAC
+        correction = VOLTAGE + ((fine_tune(phase_voltage) / 500) * VOLTAGE)
+        write_to_file(f"{DAC}/out_voltage0_raw", str(correction))
+        
+        # Print phase voltage and correction voltage
+        print(f"{PHASEDET_AVGVOLT:.3f}, {phase_voltage:.3f}, {correction * DAC_VOLTAGE_SCALE:.3f}, {phase_voltage - PHASEDET_AVGVOLT:.3f}")
+        # time.sleep(0.1)
