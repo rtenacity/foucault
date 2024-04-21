@@ -4,13 +4,9 @@ from simple_pid import PID
 
 DAC = adi.ad579x(uri="ip:analog.local", device_name='ad5791')
 ADC = adi.ad7124(uri = 'ip:analog.local')
-
 ADC.sample_rate = 711
 dac_scale = DAC.channel[0].scale
 adc_scale = ADC.channel[0].scale
-
-def clear_noise(ADC) -> float:
-    return float(ADC + (ADC * 0.0001539431268630207) + (-0.014096716462759368))
 
 def write_to_dac(val) -> None:
     DAC.channel[0].raw = val / dac_scale
@@ -18,10 +14,18 @@ def write_to_dac(val) -> None:
 def read_dac() -> float:
     return float(DAC.channel[0].raw * dac_scale)
 
-def read_adc(chn = 0) -> float:
-    return clear_noise(float(ADC.channel[chn].raw * adc_scale))
+def read_adc(chn=0) -> float:
+    return float(ADC.channel[chn].raw * adc_scale)
+
+def clear_noise(ADC) -> float:
+    return float(ADC + (ADC * 0.0001539431268630207) + (-0.014096716462759368))
+
+def read_from_file(file_path):
+    with open(file_path, 'r') as file:
+        return file.read().strip()
 
 PHASEDET_SUMVOLT = 0
+    
 for i in range(1, 20):
     PHASEDET_REFVOLT = int(read_adc(1))
     PHASEDET_MIDVOLT = PHASEDET_REFVOLT / 2
@@ -37,12 +41,14 @@ fine_tune.output_limits = (-500, 500)
 
 print(time.strftime("%Y-%m-%d %H:%M:%S"))
 
+correction_course = 0
 stable = True
-limit = 100
-voltage = 800
-correction_course = voltage
+LIMIT = 100
+VOLTAGE = 800
+
 phase_array = []
 phase_voltage = read_adc()
+
 
 while True:
     # Average phase voltage to avoid noisy signals
@@ -67,15 +73,18 @@ while True:
         stable = False
     
     
-    if abs(error) > limit or not stable:
-        correction_course = voltage + ((coarse_tune(phase_voltage) / 1000) * voltage)
+    if abs(error) > LIMIT or not stable:
+        correction_course = VOLTAGE + ((coarse_tune(phase_voltage) / 1000) * VOLTAGE)
         write_to_dac(correction_course)
+        # Print phase voltage and correction voltage
         print(f"PID_c: {PHASEDET_AVGVOLT:.3f}, {phase_voltage:.3f}, {correction_course}, {phase_voltage - PHASEDET_AVGVOLT:.3f}, {stable}")
         time.sleep(0.1)
 
     else:
-        correction_fine = correction_course + ((fine_tune(phase_voltage) / 1000) * voltage)
+        
+        correction_fine = correction_course + ((fine_tune(phase_voltage) / 1000) * VOLTAGE)
         write_to_dac(correction_fine)
         print(f"PID_f: {PHASEDET_AVGVOLT:.3f}, {phase_voltage:.3f}, {correction_fine:.3f}, {phase_voltage - PHASEDET_AVGVOLT:.3f}, C")
+        
         time.sleep(1)
 
