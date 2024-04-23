@@ -29,6 +29,23 @@ def read_dac() -> float:
 def read_adc(chn = 0) -> float:
     return clear_noise(float(ADC.channel[chn].raw * adc_scale))
 
+def format_elapsed_time(elapsed_time):
+    # Calculate each time component
+    days = int(elapsed_time // 86400)
+    remaining_seconds = elapsed_time % 86400
+
+    hours = int(remaining_seconds // 3600)
+    remaining_seconds %= 3600
+
+    minutes = int(remaining_seconds // 60)
+    seconds = int(remaining_seconds % 60)
+
+    milliseconds = int((elapsed_time - int(elapsed_time)) * 1000)
+
+    # Format the time string
+    formatted_time = f"{days}d:{hours:02}h:{minutes:02}m:{seconds:02}s:{milliseconds:03}ms"
+    return formatted_time
+
 # Calculate the target value
 PHASEDET_SUMVOLT = 0
 for i in range(1, 20):
@@ -46,7 +63,10 @@ fine_tune = PID(0.5, 0.1, 0.2, setpoint=PHASEDET_AVGVOLT)
 # change this on the fly soon
 fine_tune.output_limits = (-500, 500)
 
+start_time = time.time()
 print(time.strftime("%Y-%m-%d %H:%M:%S"))
+
+
 
 # Define computational variables
 stable = True
@@ -78,17 +98,21 @@ while True:
     else:
         stable = False
     
+    # Calculate elapsed time and format it
+    elapsed = time.time() - start_time
+    t = str(time.strftime("%Y-%m-%d %H:%M:%S")) + ", Elapsed: " + format_elapsed_time(elapsed)
+    
     # If the signal isn't stable our outside the limit implement course correction
     if abs(error) > limit or not stable:
         correction_course = voltage + ((coarse_tune(phase_voltage) / 1000) * voltage)
         write_to_dac(correction_course)
-        print(f"PID_c: {PHASEDET_AVGVOLT:.3f}, {phase_voltage:.3f}, {correction_course:.3f}, {phase_voltage - PHASEDET_AVGVOLT:.3f}, {stable}")
+        print(f"Time: {t}, PID_c: {PHASEDET_AVGVOLT:.3f}, {phase_voltage:.3f}, {correction_course:.3f}, {phase_voltage - PHASEDET_AVGVOLT:.3f}, {stable}")
         time.sleep(0.1)
 
     # If the signal is stable implement fine correction
     else:
         correction_fine = correction_course + ((fine_tune(phase_voltage) / 1000) * voltage)
         write_to_dac(correction_fine)
-        print(f"PID_f: {PHASEDET_AVGVOLT:.3f}, {phase_voltage:.3f}, {correction_fine:.3f}, {phase_voltage - PHASEDET_AVGVOLT:.3f}, C")
+        print(f"Time: {t}, PID_f: {PHASEDET_AVGVOLT:.3f}, {phase_voltage:.3f}, {correction_fine:.3f}, {phase_voltage - PHASEDET_AVGVOLT:.3f}, C")
         time.sleep(0.5)
         time.sleep(0.5)
